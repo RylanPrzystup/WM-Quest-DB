@@ -33,7 +33,7 @@ async function openDB() {
       db.createObjectStore("powers", { keyPath: "id" });
     }
   };
-
+  console.log(new Date().toISOString())
   return promisify(request);
 }
 
@@ -67,12 +67,19 @@ async function createHero(name, heroClass, attributes) {
 
 // name: a hero's name. Gives back that hero's record (or undefined).
 async function getHero(name) {
-  throw new Error("getHero() is not built yet (Level 1)");
-}
+  const questDB = await openDB();
+  const heroStore = questDB.transaction('heroes', 'readonly').objectStore('heroes')
+  return promisify(heroStore.get(name))
+
+}+
 
 // Gives back an array of every hero record.
 async function getAllHeroes() {
-  throw new Error("getAllHeroes() is not built yet (Level 1)");
+  const db = await openDB();
+  const heroStore = db.transaction("heroes", "readonly").objectStore("heroes");
+  const allHeroes = await promisify(heroStore.getAll());
+  console.log(allHeroes);
+  return allHeroes;
 }
 
 // hero: a hero record that game.js changed (new hp, xp, level, or gold).
