@@ -71,21 +71,22 @@ async function getHero(name) {
   const heroStore = questDB.transaction('heroes', 'readonly').objectStore('heroes')
   return promisify(heroStore.get(name))
 
-}+
+}
 
 // Gives back an array of every hero record.
 async function getAllHeroes() {
   const db = await openDB();
   const heroStore = db.transaction("heroes", "readonly").objectStore("heroes");
-  const allHeroes = await promisify(heroStore.getAll());
-  console.log(allHeroes);
-  return allHeroes;
+  return promisify(heroStore.getAll());
 }
 
 // hero: a hero record that game.js changed (new hp, xp, level, or gold).
 // Save it over the old one.
 async function updateHero(hero) {
-  throw new Error("updateHero() is not built yet (Level 1)");
+  const db = await openDB();
+  const heroStore = db.transaction("heroes", "readwrite").objectStore("heroes");
+
+  await promisify(heroStore.put(hero));
 }
 
 // ---------- Level 2: Inventory ----------
@@ -93,12 +94,35 @@ async function updateHero(hero) {
 //   { itemId: "healing-potion", name: "Healing Potion", type: "potion", icon: "🧪" }
 // Not in that hero's bag yet? Save it with qty 1. Already there? Add 1 to qty.
 async function addItem(heroName, item) {
-  throw new Error("addItem() is not built yet (Level 2)");
+  const db = await openDB();
+  const inventoryStore = db.transaction("inventory", "readwrite").objectStore("inventory");
+  const id = `${heroName}-${item.itemId}`;
+  const existing = await promisify(inventoryStore.get(id));
+
+  if (!existing) {
+    await promisify(inventoryStore.add({
+      id: id,
+      hero: heroName,
+      itemId: item.itemId,
+      name: item.name,
+      type: item.type,
+      icon: item.icon,
+      qty: 1
+    }));
+  } else {
+    existing.qty += 1;
+    await promisify(inventoryStore.put(existing));
+  }
 }
 
 // heroName: whose bag. Gives back ONLY that hero's items.
 async function getInventory(heroName) {
-  throw new Error("getInventory() is not built yet (Level 2)");
+  /* throw new Error("getInventory() is not built yet (Level 2)"); */
+
+  const db = await openDB();
+  const inventoryStore = db.transaction("inventory", "readonly").objectStore("inventory");
+  const allInventory = await promisify(inventoryStore.getAll());
+  return allInventory.filter((inventory) => inventory.hero == heroName)
 }
 
 // heroName: whose bag. itemId: which item, like "healing-potion".
@@ -112,12 +136,27 @@ async function removeItem(heroName, itemId) {
 //   { powerId: "magic-missile", name: "Magic Missile", description: "...", learnAt: 1 }
 // Saves that the hero knows this power.
 async function learnPower(heroName, power) {
-  throw new Error("learnPower() is not built yet (Level 2)");
-}
+  const db = await openDB();
+  const store = db.transaction("powers", "readwrite").objectStore("powers");
+  
+
+    await promisify(store.add({
+      id: heroName + "-" + power.powerId,
+      hero: heroName,
+      powerId: power.powerId,
+      name: power.name,
+      description: power.description,
+      icon: power.icon,
+      learnAt: power.learnAt
+    }));
+  }
 
 // heroName: whose powers. Gives back ONLY that hero's powers.
 async function getPowers(heroName) {
-  throw new Error("getPowers() is not built yet (Level 2)");
+  const db = await openDB();
+  const powerStore = db.transaction("powers", "readonly").objectStore("powers");
+  const allPowers = await promisify(powerStore.getAll());
+  return allPowers.filter(power => power.hero === heroName);
 }
 
 // ---------- Level 2: Delete ----------
