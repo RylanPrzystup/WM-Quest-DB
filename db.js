@@ -33,7 +33,6 @@ async function openDB() {
       db.createObjectStore("powers", { keyPath: "id" });
     }
   };
-  console.log(new Date().toISOString())
   return promisify(request);
 }
 
@@ -49,20 +48,21 @@ async function createHero(name, heroClass, attributes) {
 
   if (allHeroes.some((hero) => hero.name === name)) {
     throw new Error(`Hero "${name}" already exists.`);
-  }else{
-  await promisify(heroStore.add({
-    name: name,
-    heroClass: heroClass,
-    attributes: attributes,
-    hp: 10 + modifier(attributes.constitution),
-    maxHp: 10 + modifier(attributes.constitution),
-    xp: 0,
-    level: 1,
-    gold: 10,
-    createdAt: new Date().toISOString()
-  }))
-}
-
+  } else {
+    const hero = {
+      name: name,
+      heroClass: heroClass,
+      attributes: attributes,
+      hp: 10 + modifier(attributes.constitution),
+      maxHp: 10 + modifier(attributes.constitution),
+      xp: 0,
+      level: 1,
+      gold: 10,
+      createdAt: new Date().toISOString()
+    };
+    await promisify(heroStore.add(hero));
+    return hero;
+  }
 }
 
 // name: a hero's name. Gives back that hero's record (or undefined).
@@ -128,7 +128,18 @@ async function getInventory(heroName) {
 // heroName: whose bag. itemId: which item, like "healing-potion".
 // Takes 1 away from qty. At 0, the item leaves the bag.
 async function removeItem(heroName, itemId) {
-  throw new Error("removeItem() is not built yet (Level 2)");
+  const db = await openDB();
+  const inventoryStore = db.transaction("inventory", "readwrite").objectStore("inventory");
+  const id = `${heroName}-${itemId}`;
+  const item = await promisify(inventoryStore.get(id));
+
+  if (!item) return;
+  if (item.qty <= 1) {
+    await promisify(inventoryStore.delete(id));
+  } else {
+    item.qty -= 1;
+    await promisify(inventoryStore.put(item));
+  }
 }
 
 // ---------- Level 2: Powers ----------
@@ -163,14 +174,54 @@ async function getPowers(heroName) {
 // name: a hero's name. Removes the hero AND everything that belongs to them
 // (their items and powers, and at Level 3, their journal too).
 async function deleteHero(name) {
-  throw new Error("deleteHero() is not built yet (Level 2)");
+  const db = await openDB();
+  const hero = await promisify(db.transaction("heroes").objectStore("heroes").get(name));
+
+  if (!hero) {
+    throw new Error(`Hero "${name}" does not exist.`);
+  }
+
+  const inventory = await promisify(db.transaction("inventory").objectStore("inventory").getAll());
+  const powers = await promisify(db.transaction("powers").objectStore("powers").getAll());
+  const heroStore = db.transaction("heroes", "readwrite").objectStore("heroes");
+  /* for when jourael is done 
+  const journal = await promisify(db.transaction("journal").objectStore("journal").getAll()); 
+
+  for (const entry of journal) {
+    if (entry.hero === name) {
+      const store = db.transaction("journal", "readwrite").objectStore("journal");
+      await promisify(store.delete(entry.id));
+    }
+  */
+
+
+  await promisify(heroStore.delete(name));
+
+  for (const item of inventory) {
+    if (item.hero === name) {
+      const store = db.transaction("inventory", "readwrite").objectStore("inventory");
+      await promisify(store.delete(item.id));
+    }
+  }
+
+  for (const power of powers) {
+    if (power.hero === name) {
+      const store = db.transaction("powers", "readwrite").objectStore("powers");
+      await promisify(store.delete(power.id));
+    }
+  }
 }
 
 // ---------- Level 3: Adventure journal (version 2) ----------
 // heroName: whose journal. text: what happened, like "Beat a Goblin. +30 XP".
 // Saves a new journal entry.
+//Version 2 of the db means i need to create a new 
 async function addJournal(heroName, text) {
-  throw new Error("addJournal() is not built yet (Level 3)");
+  throw new Error("addJournal() is not built yet (Level 3)"); 
+  
+/*   const db = await openDB(DB_NAME, 2);
+  const store = db.transaction("") */
+
 }
 
 // heroName: whose journal. Gives back ONLY that hero's entries, newest first.
