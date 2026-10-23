@@ -5,7 +5,7 @@
 // like the spec, so your teacher can open DevTools and find everything.
 
 const DB_NAME = "questDB";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 // ALREADY DONE: wraps an IndexedDB request in a promise so you can use await.
 function promisify(request) {
@@ -31,6 +31,9 @@ async function openDB() {
     }
     if (!db.objectStoreNames.contains("powers")) {
       db.createObjectStore("powers", { keyPath: "id" });
+    }
+    if (!db.objectStoreNames.contains("journal")) {
+      db.createObjectStore("journal", { keyPath: "id", autoIncrement: true });
     }
   };
   return promisify(request);
@@ -174,56 +177,82 @@ async function getPowers(heroName) {
 // (their items and powers, and at Level 3, their journal too).
 async function deleteHero(name) {
   const db = await openDB();
-  const hero = await promisify(db.transaction("heroes").objectStore("heroes").get(name));
+  const tx = db.transaction(["heroes", "inventory", "powers", "journal"], "readwrite");
+
+  const heroStore = tx.objectStore("heroes");
+  const inventoryStore = tx.objectStore("inventory");
+  const powersStore = tx.objectStore("powers");
+  const journalStore = tx.objectStore("journal");
+
+  const hero = await promisify(heroStore.get(name));
 
   if (!hero) {
     throw new Error(`Hero "${name}" does not exist.`);
   }
 
-  const inventory = await promisify(db.transaction("inventory").objectStore("inventory").getAll());
-  const powers = await promisify(db.transaction("powers").objectStore("powers").getAll());
-  const heroStore = db.transaction("heroes", "readwrite").objectStore("heroes");
-  /* for when jourael is done 
-  const journal = await promisify(db.transaction("journal").objectStore("journal").getAll()); 
+  const inventory = await promisify(inventoryStore.getAll());
+  const powers = await promisify(powersStore.getAll());
+  const journal = await promisify(journalStore.getAll());
 
   for (const entry of journal) {
     if (entry.hero === name) {
-      const store = db.transaction("journal", "readwrite").objectStore("journal");
-      await promisify(store.delete(entry.id));
+      await promisify(journalStore.delete(entry.id));
     }
-  */
-
+  }
 
   await promisify(heroStore.delete(name));
 
   for (const item of inventory) {
     if (item.hero === name) {
-      const store = db.transaction("inventory", "readwrite").objectStore("inventory");
-      await promisify(store.delete(item.id));
+      await promisify(inventoryStore.delete(item.id));
     }
   }
 
   for (const power of powers) {
     if (power.hero === name) {
-      const store = db.transaction("powers", "readwrite").objectStore("powers");
-      await promisify(store.delete(power.id));
+      await promisify(powersStore.delete(power.id));
     }
   }
+
+  return hero;
 }
+
 
 // ---------- Level 3: Adventure journal (version 2) ----------
 // heroName: whose journal. text: what happened, like "Beat a Goblin. +30 XP".
 // Saves a new journal entry.
 //Version 2 of the db means i need to create a new 
 async function addJournal(heroName, text) {
-  throw new Error("addJournal() is not built yet (Level 3)"); 
+  /* throw new Error("addJournal() is not built yet (Level 3)");  */
   
 /*   const db = await openDB(DB_NAME, 2);
   const store = db.transaction("") */
+  const db = await openDB();
+  const store = db.transaction("journal", "readwrite").objectStore("journal");
+
+  //save new journal entry
+  const entry = {
+    hero: heroName,
+    text: text,
+    createdAt: new Date().toISOString()
+  };
+
+  return await promisify(store.add(entry));
+
 
 }
 
 // heroName: whose journal. Gives back ONLY that hero's entries, newest first.
 async function getJournal(heroName) {
-  throw new Error("getJournal() is not built yet (Level 3)");
+  /* throw new Error("getJournal() is not built yet (Level 3)"); */
+
+  const db = await openDB();
+  const store = db.transaction("journal", "readonly").objectStore("journal");
+
+  const allEntries = await promisify(store.getAll());
+
+  //use filter to get only the entries for the specified hero, then use reverse 
+  const heroEntries = allEntries.filter(entry => entry.hero == heroName);
+  const reversedEntries = heroEntries.reverse();
+  return reversedEntries;
 }
