@@ -157,7 +157,6 @@ async function learnPower(heroName, power) {
       powerId: power.powerId,
       name: power.name,
       description: power.description,
-      icon: power.icon,
       learnAt: power.learnAt
     }));
   }
